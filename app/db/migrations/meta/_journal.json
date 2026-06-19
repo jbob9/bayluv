@@ -22,6 +22,20 @@
       "when": 1781886818198,
       "tag": "0002_first_rachel_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1781888032388,
+      "tag": "0003_mighty_nighthawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1781888895521,
+      "tag": "0004_easy_fat_cobra",
+      "breakpoints": true
     }
   ]
 }

@@ -82,3 +82,75 @@ export async function createLoginLink(accountId: string): Promise<string> {
   const link = await stripe.accounts.createLoginLink(accountId);
   return link.url;
 }
+
+/**
+ * Creates (or recreates) a Product + recurring Price on the platform account
+ * for a membership tier. Prices are immutable, so editing price = new Price.
+ */
+export async function createTierPrice(params: {
+  name: string;
+  description?: string | null;
+  amountCents: number;
+  interval: "month" | "year";
+  currency?: string;
+  existingProductId?: string | null;
+}): Promise<{ productId: string; priceId: string }> {
+  const stripe = getStripe();
+  const productId =
+    params.existingProductId ??
+    (
+      await stripe.products.create({
+        name: params.name,
+        description: params.description ?? undefined,
+      })
+    ).id;
+
+  const price = await stripe.prices.create({
+    product: productId,
+    currency: params.currency ?? "usd",
+    unit_amount: params.amountCents,
+    recurring: { interval: params.interval },
+  });
+
+  return { productId, priceId: price.id };
+}
+
+/** Subscription Checkout Session for a Connect destination subscription. */
+export async function createSubscriptionCheckout(params: {
+  priceId: string;
+  connectedAccountId: string;
+  feePercent: number;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: Record<string, string>;
+}): Promise<string | null> {
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [{ price: params.priceId, quantity: 1 }],
+    subscription_data: {
+      application_fee_percent: params.feePercent,
+      transfer_data: { destination: params.connectedAccountId },
+      metadata: params.metadata,
+    },
+    customer_email: params.customerEmail ?? undefined,
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+    metadata: params.metadata,
+  });
+  return session.url;
+}
+
+/** Stripe billing portal so supporters can manage/cancel their subscription. */
+export async function createBillingPortal(
+  customerId: string,
+  returnUrl: string,
+): Promise<string> {
+  const stripe = getStripe();
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+  });
+  return session.url;
+}

@@ -6,6 +6,9 @@ import type { Route } from "./+types/$username";
 import { getPublicProfile } from "~/lib/profile.server";
 import { db } from "~/db/index.server";
 import { support } from "~/db/schemas/payments";
+import { tier as tierTable } from "~/db/schemas/membership";
+import { product as productTable } from "~/db/schemas/shop";
+import { asc } from "drizzle-orm";
 import { getTheme } from "~/lib/theme";
 import { cn } from "~/lib/utils";
 import { Logo } from "~/components/brand/logo";
@@ -14,8 +17,11 @@ import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Progress } from "~/components/ui/progress";
 import { useToast } from "~/components/ui/toast";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import { SocialRow } from "~/components/profile/socials";
 import { SupportWidget } from "~/components/profile/support-widget";
+import { TierCard } from "~/components/profile/tier-card";
+import { ProductCard } from "~/components/profile/product-card";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData?.profile) return [{ title: "Not found · bayluv" }];
@@ -40,8 +46,39 @@ export async function loader({ params }: Route.LoaderArgs) {
     limit: 8,
   });
 
+  const tiers = await db.query.tier.findMany({
+    where: and(eq(tierTable.profileId, profile.id), eq(tierTable.isActive, true)),
+    orderBy: asc(tierTable.priceCents),
+  });
+
+  const products = await db.query.product.findMany({
+    where: and(
+      eq(productTable.profileId, profile.id),
+      eq(productTable.isActive, true),
+    ),
+    orderBy: asc(productTable.sortOrder),
+  });
+
   return {
     profile,
+    products: products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      priceCents: p.priceCents,
+      type: p.type,
+      imageUrl: p.imageUrl,
+    })),
+    tiers: tiers.map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      priceCents: t.priceCents,
+      interval: t.interval,
+      benefits: t.benefits ?? [],
+      accentColor: t.accentColor,
+      joinable: Boolean(t.stripePriceId),
+    })),
     supporters: supporters.map((s) => ({
       id: s.id,
       name: s.supporterName,
@@ -52,24 +89,45 @@ export async function loader({ params }: Route.LoaderArgs) {
   };
 }
 
-type TipFetcher = { url?: string; error?: string };
+type CheckoutFetcher = {
+  url?: string;
+  error?: string;
+  loginRequired?: boolean;
+  redirect?: string;
+};
 
 export default function PublicProfile({ loaderData }: Route.ComponentProps) {
-  const { profile, supporters } = loaderData;
+  const { profile, supporters, tiers, products } = loaderData;
   const theme = getTheme(profile.themeColor);
   const { toast } = useToast();
   const [params, setParams] = useSearchParams();
-  const fetcher = useFetcher<TipFetcher>();
+  const fetcher = useFetcher<CheckoutFetcher>();
+  const checkingOut = fetcher.state !== "idle";
 
-  // Redirect to Stripe Checkout (or surface an error) when the tip action returns.
+  // Redirect to Stripe Checkout / login (or surface an error) on action return.
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.url) {
-      window.location.href = fetcher.data.url;
-    } else if (fetcher.data.error) {
-      toast({ tone: "error", title: fetcher.data.error });
+    const d = fetcher.data;
+    if (d.url) {
+      window.location.href = d.url;
+    } else if (d.loginRequired && d.redirect) {
+      window.location.href = d.redirect;
+    } else if (d.error) {
+      toast({ tone: "error", title: d.error });
     }
   }, [fetcher.state, fetcher.data, toast]);
+
+  const joinTier = (tierId: string) =>
+    fetcher.submit(
+      { tierId, username: profile.username },
+      { method: "post", action: "/api/checkout/subscription" },
+    );
+
+  const buyProduct = (productId: string) =>
+    fetcher.submit(
+      { productId },
+      { method: "post", action: "/api/checkout/product" },
+    );
 
   // One-time toast for return from Checkout.
   useEffect(() => {
@@ -143,7 +201,7 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
 
         {/* Two columns */}
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_24rem]">
-          {/* Left: about + links */}
+          {/* Left: about + links + membership */}
           <div className="space-y-6">
             {profile.tagline && (
               <p className="text-lg font-medium text-ink-soft">
@@ -151,56 +209,99 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
               </p>
             )}
 
-            <Card className="p-6">
-              <h2 className="text-lg font-bold text-ink">About</h2>
-              {profile.bio ? (
-                <p className="mt-2 whitespace-pre-line leading-relaxed text-ink-soft">
-                  {profile.bio}
-                </p>
-              ) : (
-                <p className="mt-2 text-muted">No bio yet.</p>
+            <Tabs defaultValue="about" className="space-y-4">
+              {(tiers.length > 0 || products.length > 0) && (
+                <TabsList>
+                  <TabsTrigger value="about">About</TabsTrigger>
+                  {tiers.length > 0 && (
+                    <TabsTrigger value="membership">Membership</TabsTrigger>
+                  )}
+                  {products.length > 0 && (
+                    <TabsTrigger value="shop">Shop</TabsTrigger>
+                  )}
+                </TabsList>
               )}
-              <div className="mt-4">
-                <SocialRow links={profile.socialLinks} />
-              </div>
-            </Card>
 
-            {profile.links.length > 0 && (
-              <div className="space-y-3">
-                {profile.links.map((l) =>
-                  l.type === "header" ? (
-                    <h3
-                      key={l.id}
-                      className="px-1 pt-2 text-sm font-bold uppercase tracking-wide text-muted"
-                    >
-                      {l.title}
-                    </h3>
+              <TabsContent value="about" className="space-y-6">
+                <Card className="p-6">
+                  <h2 className="text-lg font-bold text-ink">About</h2>
+                  {profile.bio ? (
+                    <p className="mt-2 whitespace-pre-line leading-relaxed text-ink-soft">
+                      {profile.bio}
+                    </p>
                   ) : (
-                    <a
-                      key={l.id}
-                      href={`/l/${l.id}`}
-                      className="group flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-card"
-                    >
-                      {l.thumbnailUrl ? (
-                        <img
-                          src={l.thumbnailUrl}
-                          alt=""
-                          className="h-12 w-12 shrink-0 rounded-xl object-cover"
-                        />
+                    <p className="mt-2 text-muted">No bio yet.</p>
+                  )}
+                  <div className="mt-4">
+                    <SocialRow links={profile.socialLinks} />
+                  </div>
+                </Card>
+
+                {profile.links.length > 0 && (
+                  <div className="space-y-3">
+                    {profile.links.map((l) =>
+                      l.type === "header" ? (
+                        <h3
+                          key={l.id}
+                          className="px-1 pt-2 text-sm font-bold uppercase tracking-wide text-muted"
+                        >
+                          {l.title}
+                        </h3>
                       ) : (
-                        <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", theme.soft)}>
-                          <ExternalLink className="h-5 w-5" />
-                        </span>
-                      )}
-                      <span className="flex-1 font-semibold text-ink">
-                        {l.title}
-                      </span>
-                      <ExternalLink className="h-4 w-4 text-muted transition-colors group-hover:text-ink" />
-                    </a>
-                  ),
+                        <a
+                          key={l.id}
+                          href={`/l/${l.id}`}
+                          className="group flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-card"
+                        >
+                          {l.thumbnailUrl ? (
+                            <img
+                              src={l.thumbnailUrl}
+                              alt=""
+                              className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                            />
+                          ) : (
+                            <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl", theme.soft)}>
+                              <ExternalLink className="h-5 w-5" />
+                            </span>
+                          )}
+                          <span className="flex-1 font-semibold text-ink">
+                            {l.title}
+                          </span>
+                          <ExternalLink className="h-4 w-4 text-muted transition-colors group-hover:text-ink" />
+                        </a>
+                      ),
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
+              </TabsContent>
+
+              {tiers.length > 0 && (
+                <TabsContent value="membership" className="space-y-4">
+                  {tiers.map((t) => (
+                    <TierCard
+                      key={t.id}
+                      tier={t}
+                      pending={checkingOut}
+                      onJoin={joinTier}
+                    />
+                  ))}
+                </TabsContent>
+              )}
+
+              {products.length > 0 && (
+                <TabsContent value="shop" className="space-y-3">
+                  {products.map((p) => (
+                    <ProductCard
+                      key={p.id}
+                      product={p}
+                      themeColor={profile.themeColor}
+                      pending={checkingOut}
+                      onBuy={buyProduct}
+                    />
+                  ))}
+                </TabsContent>
+              )}
+            </Tabs>
           </div>
 
           {/* Right: support widget + goal */}
@@ -221,7 +322,7 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
               <SupportWidget
                 creatorName={profile.displayName}
                 themeColor={profile.themeColor}
-                pending={fetcher.state !== "idle"}
+                pending={checkingOut}
                 onSupport={(p) =>
                   fetcher.submit(
                     {

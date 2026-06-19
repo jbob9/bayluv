@@ -78,9 +78,11 @@
     @apply font-display tracking-tight;
   }
 
-  /* Consistent, friendly focus ring across interactive elements */
+  /* Consistent, friendly focus ring. Uses outline (not box-shadow) so it never
+     conflicts with the chunky button lip / input glow, which are box-shadows. */
   :where(a, button, input, textarea, select, [tabindex]):focus-visible {
-    @apply outline-none ring-2 ring-primary/60 ring-offset-2 ring-offset-cream;
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   ::selection {
@@ -114,5 +116,42 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Gentle bobbing for decorative floating cards on the landing page. */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--tilt, 0deg));
+  }
+  50% {
+    transform: translateY(-12px) rotate(var(--tilt, 0deg));
+  }
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-wiggle {
+    animation: wiggle 2.5s ease-in-out infinite;
+  }
+  /* Respect reduced-motion preferences. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-wiggle {
+      animation: none;
+    }
   }
 }

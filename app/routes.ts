@@ -33,7 +33,15 @@ export default [
   // API
   route("api/auth/*", "routes/api.auth.$.tsx"),
   route("api/checkout/tip", "routes/api.checkout.tip.tsx"),
+  route("api/checkout/subscription", "routes/api.checkout.subscription.tsx"),
+  route("api/checkout/product", "routes/api.checkout.product.tsx"),
   route("api/webhooks/stripe", "routes/api.webhooks.stripe.tsx"),
+
+  // Supporter account (manage memberships)
+  route("account", "routes/account.tsx"),
+
+  // Post-purchase download / access page
+  route("d/:orderId", "routes/d.$orderId.tsx"),
 
   // Link-in-bio click tracker (increments then redirects)
   route("l/:linkId", "routes/l.$linkId.tsx"),
