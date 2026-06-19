@@ -1,0 +1,13 @@
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { db, schema } from "~/db/index.server";
+
+export const auth = betterAuth({
+  database: drizzleAdapter(db, {
+    provider: "sqlite",
+    schema,
+    usePlural: true,
+  }),
+  baseURL: "http://localhost:3000/",
+  emailAndPassword: { enabled: true },
+});
