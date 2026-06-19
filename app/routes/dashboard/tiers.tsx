@@ -6,6 +6,7 @@ import { requireProfile } from "~/lib/session.server";
 import { db } from "~/db/index.server";
 import { tier as tierTable } from "~/db/schemas/membership";
 import { hasStripe, createTierPrice } from "~/lib/stripe.server";
+import { useActionToast } from "~/lib/use-action-toast";
 import { THEME_COLORS } from "~/lib/theme";
 import { formatMoney } from "~/lib/utils";
 import { PageHeader } from "~/components/dashboard/page-header";
@@ -147,10 +148,14 @@ export async function action({ request }: Route.ActionArgs) {
   return { error: "Unknown action" };
 }
 
-export default function Tiers({ loaderData }: Route.ComponentProps) {
+export default function Tiers({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
   const { tiers, stripeReady } = loaderData;
   const nav = useNavigation();
   const busy = nav.state !== "idle";
+  useActionToast(actionData);
 
   return (
     <>

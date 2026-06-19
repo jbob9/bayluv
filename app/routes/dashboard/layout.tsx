@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Form,
   NavLink,
@@ -17,6 +17,8 @@ import {
   Menu,
   X,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import type { Route } from "./+types/layout";
 import { requireProfile } from "~/lib/session.server";
@@ -47,15 +49,54 @@ const nav = [
   { to: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
+const STORAGE_KEY = "bayluv:sidebar-collapsed";
+
 export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
   const { profile, user } = loaderData;
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
-  const sidebar = (
+  // Restore + persist the collapsed preference (client-only to avoid SSR mismatch).
+  useEffect(() => {
+    setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+  }, []);
+  const toggleCollapsed = () =>
+    setCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+
+  // `mini` = icon-only rail (desktop collapsed). Mobile drawer is always full.
+  const renderSidebar = (mini: boolean) => (
     <div className="flex h-full flex-col gap-2">
-      <div className="px-3 py-4">
-        <Logo />
+      <div
+        className={cn(
+          "flex items-center px-3 py-4",
+          mini ? "justify-center" : "justify-between",
+        )}
+      >
+        <Logo compact={mini} />
+        {!mini && (
+          <button
+            onClick={toggleCollapsed}
+            aria-label="Collapse sidebar"
+            className="hidden h-8 w-8 place-items-center rounded-lg text-muted hover:bg-ink/5 hover:text-ink lg:grid"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </button>
+        )}
       </div>
+
+      {mini && (
+        <button
+          onClick={toggleCollapsed}
+          aria-label="Expand sidebar"
+          className="mx-auto grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-ink/5 hover:text-ink"
+        >
+          <PanelLeftOpen className="h-5 w-5" />
+        </button>
+      )}
 
       <nav className="flex-1 space-y-1 px-3">
         {nav.map(({ to, label, icon: Icon, end }) => (
@@ -64,17 +105,19 @@ export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
             to={to}
             end={end}
             onClick={() => setOpen(false)}
+            title={mini ? label : undefined}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition-colors",
+                "flex items-center rounded-xl text-[15px] font-semibold transition-colors",
+                mini ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
                 isActive
                   ? "bg-primary-100 text-primary-700"
                   : "text-ink-soft hover:bg-ink/5 hover:text-ink",
               )
             }
           >
-            <Icon className="h-5 w-5" />
-            {label}
+            <Icon className="h-5 w-5 shrink-0" />
+            {!mini && label}
           </NavLink>
         ))}
       </nav>
@@ -84,25 +127,36 @@ export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
           href={`/${profile.username}`}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+          title={mini ? "View my page" : undefined}
+          className={cn(
+            "flex items-center rounded-xl text-[15px] font-semibold text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink",
+            mini ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
+          )}
         >
-          <ExternalLink className="h-5 w-5" />
-          View my page
+          <ExternalLink className="h-5 w-5 shrink-0" />
+          {!mini && "View my page"}
         </a>
-        <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+        <div
+          className={cn(
+            "flex items-center rounded-xl",
+            mini ? "flex-col gap-2 py-2" : "gap-3 px-3 py-2.5",
+          )}
+        >
           <Avatar
             src={profile.avatarUrl ?? user.image}
             name={profile.displayName}
             size="sm"
           />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-ink">
-              {profile.displayName}
-            </p>
-            <p className="truncate text-xs text-muted">
-              bayluv.com/{profile.username}
-            </p>
-          </div>
+          {!mini && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-ink">
+                {profile.displayName}
+              </p>
+              <p className="truncate text-xs text-muted">
+                bayluv.com/{profile.username}
+              </p>
+            </div>
+          )}
           <Form method="post" action="/logout">
             <button
               type="submit"
@@ -118,10 +172,15 @@ export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
+    <div
+      className={cn(
+        "min-h-screen lg:grid",
+        collapsed ? "lg:grid-cols-[4.75rem_1fr]" : "lg:grid-cols-[16rem_1fr]",
+      )}
+    >
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen border-r border-border bg-paper lg:block">
-        {sidebar}
+        {renderSidebar(collapsed)}
       </aside>
 
       {/* Mobile top bar */}
@@ -151,7 +210,7 @@ export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
             >
               <X className="h-5 w-5" />
             </button>
-            {sidebar}
+            {renderSidebar(false)}
           </div>
         </div>
       )}

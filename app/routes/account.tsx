@@ -7,6 +7,7 @@ import { db } from "~/db/index.server";
 import { membership } from "~/db/schemas/membership";
 import { hasStripe, createBillingPortal, appUrl } from "~/lib/stripe.server";
 import { formatMoney } from "~/lib/utils";
+import { useActionToast } from "~/lib/use-action-toast";
 import { Logo } from "~/components/brand/logo";
 import { Card, CardContent } from "~/components/ui/card";
 import { Button, ButtonLink } from "~/components/ui/button";
@@ -49,8 +50,12 @@ export async function action({ request }: Route.ActionArgs) {
   return redirect(url);
 }
 
-export default function Account({ loaderData }: Route.ComponentProps) {
+export default function Account({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
   const { memberships } = loaderData;
+  useActionToast(actionData);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-10">

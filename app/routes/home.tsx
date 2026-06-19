@@ -93,7 +93,7 @@ const perks = [
 
 const testimonials = [
   {
-    quote: "Set up in literally two minutes and got my first coffee the same day. The page just feels nice.",
+    quote: "Set up in literally two minutes and got my first tip the same day. The page just feels nice.",
     name: "Maya R.",
     handle: "illustrator",
     tone: "primary" as const,
@@ -333,24 +333,23 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                 </p>
               </div>
             </div>
-            <h3 className="text-lg font-bold text-ink">Support Ava</h3>
-            <div className="mt-3 flex items-center gap-3 rounded-2xl bg-primary-50 p-3">
+            <h3 className="text-lg font-bold text-ink">Send Ava a tip</h3>
+            <div className="mt-3 flex items-center gap-3 rounded-2xl bg-ink/3 p-3">
               <span className="grid h-12 w-12 place-items-center rounded-xl bg-primary-100 text-primary-700">
-                <Coffee className="h-6 w-6" />
+                <Heart className="h-6 w-6" />
               </span>
-              <span className="text-2xl font-bold text-muted">×</span>
               <div className="flex flex-1 items-center gap-2">
-                {[1, 3, 5].map((n, i) => (
+                {[3, 5, 10].map((n, i) => (
                   <span
                     key={n}
                     className={cn(
-                      "grid h-11 flex-1 place-items-center rounded-xl border-2 text-lg font-bold",
-                      i === 0
+                      "grid h-11 flex-1 place-items-center rounded-xl border-2 text-[15px] font-bold",
+                      i === 1
                         ? "border-transparent bg-primary text-white"
                         : "border-border bg-surface text-ink",
                     )}
                   >
-                    {n}
+                    ${n}
                   </span>
                 ))}
               </div>
@@ -358,7 +357,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <div className="mt-4 h-12 rounded-2xl border-2 border-border bg-paper" />
             <div className="mt-3 h-20 rounded-2xl border-2 border-border bg-paper" />
             <div className="mt-4 grid h-12 place-items-center rounded-full bg-primary font-bold text-white [box-shadow:0_3px_0_var(--color-primary-700)]">
-              Support $5
+              Tip $5
             </div>
           </Card>
         </div>

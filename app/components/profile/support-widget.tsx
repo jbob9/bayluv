@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Coffee } from "lucide-react";
-import { cn } from "~/lib/utils";
+import { Heart } from "lucide-react";
+import { cn, formatMoney } from "~/lib/utils";
 import { getTheme } from "~/lib/theme";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 
-const PRESETS = [1, 3, 5];
-const UNIT_PRICE = 5; // dollars per "coffee"
+/** Preset tip amounts, in cents. */
+const PRESETS = [300, 500, 1000];
 
 export type SupportPayload = {
   quantity: number;
@@ -29,63 +29,73 @@ export function SupportWidget({
   onSupport: (payload: SupportPayload) => void;
 }) {
   const theme = getTheme(themeColor);
-  const [qty, setQty] = useState(1);
+  const [preset, setPreset] = useState(500);
   const [custom, setCustom] = useState("");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [monthly, setMonthly] = useState(false);
 
-  const quantity = custom ? Math.max(1, parseInt(custom, 10) || 1) : qty;
-  const amountCents = quantity * UNIT_PRICE * 100;
+  const amountCents = custom
+    ? Math.max(100, Math.round(parseFloat(custom) * 100) || 0)
+    : preset;
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSupport({ quantity, amountCents, name, message, monthly });
+        onSupport({ quantity: 1, amountCents, name, message, monthly });
       }}
       className="space-y-4"
     >
       <h2 className="text-xl font-bold text-ink">
-        Buy {creatorName.split(" ")[0]} a coffee
+        Send {creatorName.split(" ")[0]} a tip
       </h2>
 
-      {/* Quantity selector */}
-      <div className="flex items-center gap-3 rounded-2xl bg-primary-50 p-3">
-        <span className={cn("grid h-12 w-12 place-items-center rounded-xl text-2xl", theme.soft)}>
-          <Coffee className="h-6 w-6" />
+      {/* Amount selector */}
+      <div className="flex items-center gap-3 rounded-2xl bg-ink/3 p-3">
+        <span
+          className={cn(
+            "grid h-12 w-12 shrink-0 place-items-center rounded-xl",
+            theme.soft,
+          )}
+        >
+          <Heart className="h-6 w-6" />
         </span>
-        <span className="text-2xl font-bold text-muted">×</span>
         <div className="flex flex-1 items-center gap-2">
-          {PRESETS.map((p) => (
+          {PRESETS.map((cents) => (
             <button
-              key={p}
+              key={cents}
               type="button"
               onClick={() => {
-                setQty(p);
+                setPreset(cents);
                 setCustom("");
               }}
               className={cn(
-                "h-11 flex-1 rounded-xl border-2 text-lg font-bold transition-colors",
-                !custom && qty === p
+                "h-11 flex-1 rounded-xl border-2 text-[15px] font-bold transition-colors",
+                !custom && preset === cents
                   ? cn(theme.bg, "border-transparent text-white")
                   : "border-border bg-surface text-ink hover:border-border-strong",
               )}
             >
-              {p}
+              ${cents / 100}
             </button>
           ))}
-          <input
-            type="number"
-            min={1}
-            placeholder="…"
-            value={custom}
-            onChange={(e) => setCustom(e.target.value)}
-            className={cn(
-              "h-11 w-16 rounded-xl border-2 bg-surface text-center text-lg font-bold text-ink outline-none",
-              custom ? cn(theme.ring, "border-current", theme.text) : "border-border",
-            )}
-          />
+          <div className="relative w-20">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted">
+              $
+            </span>
+            <input
+              type="number"
+              min={1}
+              placeholder="…"
+              value={custom}
+              onChange={(e) => setCustom(e.target.value)}
+              className={cn(
+                "h-11 w-full rounded-xl border-2 bg-surface pl-6 pr-2 text-[15px] font-bold text-ink outline-none",
+                custom ? cn("border-current", theme.text) : "border-border",
+              )}
+            />
+          </div>
         </div>
       </div>
 
@@ -105,7 +115,7 @@ export function SupportWidget({
           type="checkbox"
           checked={monthly}
           onChange={(e) => setMonthly(e.target.checked)}
-          className="h-4 w-4 accent-[var(--color-primary)]"
+          className="h-4 w-4 accent-primary"
         />
         Make this monthly
       </label>
@@ -114,11 +124,11 @@ export function SupportWidget({
         type="submit"
         size="lg"
         disabled={pending}
-        className={cn("w-full", theme.bg, "hover:brightness-95")}
+        className={cn("w-full", theme.btn)}
       >
         {pending
           ? "Redirecting…"
-          : `Support $${(amountCents / 100).toFixed(0)}${monthly ? " /mo" : ""}`}
+          : `Tip ${formatMoney(amountCents)}${monthly ? " /mo" : ""}`}
       </Button>
     </form>
   );

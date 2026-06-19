@@ -5,9 +5,12 @@ import { cn } from "~/lib/utils";
 export function Logo({
   className,
   to = "/",
+  compact = false,
 }: {
   className?: string;
   to?: string;
+  /** Render only the square mark (no wordmark) — used by the collapsed sidebar. */
+  compact?: boolean;
 }) {
   return (
     <Link
@@ -17,10 +20,10 @@ export function Logo({
         className,
       )}
     >
-      <span className="grid h-9 w-9 place-items-center rounded-2xl bg-primary text-lg text-primary-foreground shadow-soft">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-primary text-lg text-primary-foreground shadow-soft">
         b
       </span>
-      bayluv
+      {!compact && "bayluv"}
     </Link>
   );
 }

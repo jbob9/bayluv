@@ -13,6 +13,7 @@ import {
 import type { Route } from "./+types/page";
 import { requireProfile } from "~/lib/session.server";
 import { getOwnProfile } from "~/lib/profile.server";
+import { useActionToast } from "~/lib/use-action-toast";
 import { db } from "~/db/index.server";
 import { profile as profileTable, link, socialLink } from "~/db/schemas/profile";
 import { THEME_COLORS } from "~/lib/theme";
@@ -166,10 +167,14 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-export default function EditPage({ loaderData }: Route.ComponentProps) {
+export default function EditPage({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
   const { profile } = loaderData;
   const nav = useNavigation();
   const saving = nav.state !== "idle";
+  useActionToast(actionData);
 
   return (
     <>

@@ -6,6 +6,7 @@ import { requireProfile } from "~/lib/session.server";
 import { db } from "~/db/index.server";
 import { product as productTable } from "~/db/schemas/shop";
 import { formatMoney } from "~/lib/utils";
+import { useActionToast } from "~/lib/use-action-toast";
 import { PageHeader } from "~/components/dashboard/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -97,10 +98,14 @@ const typeMeta = {
   commission: { icon: Brush, label: "Commission" },
 } as const;
 
-export default function Products({ loaderData }: Route.ComponentProps) {
+export default function Products({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
   const { products } = loaderData;
   const nav = useNavigation();
   const busy = nav.state !== "idle";
+  useActionToast(actionData);
 
   return (
     <>

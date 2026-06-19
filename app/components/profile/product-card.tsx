@@ -53,7 +53,7 @@ export function ProductCard({
           </span>
           <Button
             size="sm"
-            className={cn(theme.bg, "hover:brightness-95")}
+            className={cn(theme.btn)}
             disabled={pending}
             onClick={() => onBuy(product.id)}
           >

@@ -2,8 +2,12 @@ import { eq, asc } from "drizzle-orm";
 import { db } from "~/db/index.server";
 import { profile, link, socialLink } from "~/db/schemas/profile";
 
-/** Loads a published profile by username with its socials + active links. */
-export async function getPublicProfile(username: string) {
+/**
+ * Loads a profile by username with its socials + active links.
+ * Returns it when published, OR when the viewer is the owner (draft preview).
+ * Returns `null` if missing, or unpublished and the viewer isn't the owner.
+ */
+export async function getPublicProfile(username: string, viewerUserId?: string) {
   const row = await db.query.profile.findFirst({
     where: eq(profile.username, username.toLowerCase()),
     with: {
@@ -11,7 +15,8 @@ export async function getPublicProfile(username: string) {
       links: { orderBy: asc(link.sortOrder) },
     },
   });
-  if (!row || !row.isPublished) return null;
+  if (!row) return null;
+  if (!row.isPublished && row.userId !== viewerUserId) return null;
   return { ...row, links: row.links.filter((l) => l.isActive) };
 }
 
