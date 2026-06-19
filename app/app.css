@@ -1,15 +1,118 @@
 @import "tailwindcss";
 
+/* ============================================================
+   bayluv design system — "playful & warm"
+   Warm cream paper, friendly coral primary, soft candy accents.
+   ============================================================ */
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* Fonts */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-display: "Baloo 2", "Inter", ui-rounded, system-ui, sans-serif;
+
+  /* Surfaces */
+  --color-cream: #fdf6ee; /* page background */
+  --color-paper: #fffaf4; /* slightly lighter sections */
+  --color-surface: #ffffff; /* cards */
+  --color-border: #efe4d6; /* warm hairline */
+  --color-border-strong: #e3d4c1;
+
+  /* Ink / text */
+  --color-ink: #2a2018; /* headings / body */
+  --color-ink-soft: #5b4f44; /* secondary text */
+  --color-muted: #8a7d70; /* tertiary / placeholder */
+
+  /* Primary — friendly coral */
+  --color-primary-50: #fff1ec;
+  --color-primary-100: #ffe0d4;
+  --color-primary-200: #ffc0a8;
+  --color-primary-300: #ff9b76;
+  --color-primary-400: #ff7a4d;
+  --color-primary: #ff5c39;
+  --color-primary-600: #ed4423;
+  --color-primary-700: #c5331a;
+  --color-primary-foreground: #ffffff;
+
+  /* Candy accents (tier cards, badges, illustrations) */
+  --color-mint: #2fd2a8;
+  --color-mint-soft: #d9f8ef;
+  --color-sky: #4fb0ff;
+  --color-sky-soft: #ddeeff;
+  --color-grape: #9b6cff;
+  --color-grape-soft: #ece1ff;
+  --color-sunny: #ffc83d;
+  --color-sunny-soft: #fff0c9;
+
+  /* Status */
+  --color-success: #1fb866;
+  --color-success-soft: #d7f4e3;
+  --color-danger: #e5484d;
+  --color-danger-soft: #fbdedf;
+
+  /* Radii — generously rounded */
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+
+  /* Shadows — soft, warm */
+  --shadow-soft: 0 1px 2px rgba(42, 32, 24, 0.04),
+    0 8px 24px -12px rgba(42, 32, 24, 0.12);
+  --shadow-card: 0 1px 3px rgba(42, 32, 24, 0.05),
+    0 12px 32px -16px rgba(42, 32, 24, 0.18);
+  --shadow-pop: 0 8px 40px -8px rgba(255, 92, 57, 0.35);
 }
 
-html,
-body {
-  @apply bg-white dark:bg-gray-950;
+@layer base {
+  html,
+  body {
+    @apply bg-cream text-ink;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
+  }
+
+  /* Consistent, friendly focus ring across interactive elements */
+  :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+    @apply outline-none ring-2 ring-primary/60 ring-offset-2 ring-offset-cream;
+  }
+
+  ::selection {
+    background: var(--color-primary-200);
+    color: var(--color-ink);
+  }
+}
+
+/* Reusable utility: thin warm scrollbar */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

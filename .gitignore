@@ -5,3 +5,11 @@
 # React Router
 /.react-router/
 /build/
+
+# Local DB
+local.db
+local.db-*
+*.sqlite
+
+# Local uploads (dev storage fallback)
+/public/uploads/

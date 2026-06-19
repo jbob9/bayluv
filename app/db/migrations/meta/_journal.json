@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1781882636178,
+      "tag": "0000_chemical_fixer",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1781883445675,
+      "tag": "0001_bouncy_darkhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781886818198,
+      "tag": "0002_first_rachel_grey",
+      "breakpoints": true
+    }
+  ]
+}
