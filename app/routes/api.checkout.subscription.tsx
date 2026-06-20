@@ -20,6 +20,7 @@ export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const tierId = String(form.get("tierId") ?? "");
   const username = String(form.get("username") ?? "");
+  const cycle = String(form.get("cycle")) === "year" ? "year" : "month";
 
   const viewer = await getOptionalUser(request);
   if (!viewer) {
@@ -48,12 +49,17 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
+  // Use the yearly price when requested and available; else the base price.
+  const useYearly = cycle === "year" && Boolean(tier.stripeYearlyPriceId);
+  const priceId = useYearly ? tier.stripeYearlyPriceId! : tier.stripePriceId;
+  const baseAmount =
+    useYearly && tier.yearlyPriceCents ? tier.yearlyPriceCents : tier.priceCents;
   const feePercent = Number(
-    ((platformFeeCents(tier.priceCents) / tier.priceCents) * 100).toFixed(2),
+    ((platformFeeCents(baseAmount) / baseAmount) * 100).toFixed(2),
   );
 
   const url = await createSubscriptionCheckout({
-    priceId: tier.stripePriceId,
+    priceId,
     connectedAccountId: acct.stripeAccountId,
     feePercent,
     customerEmail: viewer.email,

@@ -83,7 +83,11 @@ async function markTipPaid(session: Stripe.Checkout.Session) {
 
   await db
     .update(support)
-    .set({ status: "paid", stripePaymentIntentId: paymentIntentId })
+    .set({
+      status: "paid",
+      stripePaymentIntentId: paymentIntentId,
+      supporterEmail: row.supporterEmail ?? session.customer_details?.email ?? null,
+    })
     .where(and(eq(support.id, supportId), eq(support.status, "pending")));
 
   await db

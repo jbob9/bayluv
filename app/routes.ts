@@ -22,9 +22,12 @@ export default [
     layout("routes/dashboard/layout.tsx", [
       index("routes/dashboard/index.tsx"),
       route("page", "routes/dashboard/page.tsx"),
+      route("posts", "routes/dashboard/posts.tsx"),
       route("tiers", "routes/dashboard/tiers.tsx"),
       route("products", "routes/dashboard/products.tsx"),
       route("supporters", "routes/dashboard/supporters.tsx"),
+      route("broadcasts", "routes/dashboard/broadcasts.tsx"),
+      route("analytics", "routes/dashboard/analytics.tsx"),
       route("payouts", "routes/dashboard/payouts.tsx"),
       route("settings", "routes/dashboard/settings.tsx"),
     ]),

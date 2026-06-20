@@ -35,7 +35,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     stats: {
       supporters: profile.supporterCount,
       earningsThisMonthCents,
-      pageViews: 0,
+      pageViews: profile.pageViews,
     },
   };
 }

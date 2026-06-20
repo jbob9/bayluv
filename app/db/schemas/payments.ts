@@ -53,6 +53,7 @@ export const support = sqliteTable(
       onDelete: "set null",
     }),
     supporterName: text("supporter_name"),
+    supporterEmail: text("supporter_email"),
     quantity: integer("quantity").default(1).notNull(),
     amountCents: integer("amount_cents").notNull(),
     feeCents: integer("fee_cents").default(0).notNull(),

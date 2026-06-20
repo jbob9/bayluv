@@ -12,22 +12,29 @@ export type PublicTier = {
   benefits: string[];
   accentColor: string;
   imageUrl?: string | null;
+  yearlyPriceCents?: number | null;
   joinable: boolean;
 };
 
 export function TierCard({
   tier,
+  cycle = "month",
   pending,
   onJoin,
 }: {
   tier: PublicTier;
+  cycle?: "month" | "year";
   pending?: boolean;
-  onJoin: (tierId: string) => void;
+  onJoin: (tierId: string, cycle: "month" | "year") => void;
 }) {
   const theme = getTheme(tier.accentColor);
+  // Show yearly pricing only when the cycle is yearly AND this tier offers it.
+  const yearly = cycle === "year" && tier.yearlyPriceCents != null;
+  const amount = yearly ? tier.yearlyPriceCents! : tier.priceCents;
+  const per = yearly ? "year" : tier.interval;
+
   return (
     <div className="overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
-      {/* Cover band — image or a themed gradient with a crown */}
       <div
         className={cn(
           "relative flex h-28 items-center justify-center bg-linear-to-br",
@@ -35,7 +42,13 @@ export function TierCard({
         )}
       >
         {tier.imageUrl ? (
-          <img src={tier.imageUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={tier.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <Crown className="h-10 w-10 text-white/90" />
         )}
@@ -46,16 +59,13 @@ export function TierCard({
           {tier.name}
         </h3>
         <p className="text-3xl font-extrabold text-ink">
-          {formatMoney(tier.priceCents)}
-          <span className="text-base font-medium text-muted">
-            {" "}
-            / {tier.interval}
-          </span>
+          {formatMoney(amount)}
+          <span className="text-base font-medium text-muted"> / {per}</span>
         </p>
         <Button
           className={cn("w-full", theme.btn)}
           disabled={pending || !tier.joinable}
-          onClick={() => onJoin(tier.id)}
+          onClick={() => onJoin(tier.id, yearly ? "year" : "month")}
         >
           {tier.joinable ? "Join" : "Coming soon"}
         </Button>

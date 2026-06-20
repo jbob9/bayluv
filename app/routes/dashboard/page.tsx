@@ -65,6 +65,9 @@ export async function action({ request }: Route.ActionArgs) {
           avatarUrl: str("avatarUrl"),
           coverUrl: str("coverUrl"),
           themeColor: str("themeColor") ?? "primary",
+          layout: (str("layout") === "stacked" ? "stacked" : "standard") as
+            | "standard"
+            | "stacked",
           goalAmountCents: goalDollars > 0 ? Math.round(goalDollars * 100) : null,
           goalLabel: str("goalLabel"),
         })
@@ -88,7 +91,7 @@ export async function action({ request }: Route.ActionArgs) {
       const next = max.reduce((m, l) => Math.max(m, l.sortOrder), -1) + 1;
       await db.insert(link).values({
         profileId: profile.id,
-        type: (str("type") as "link" | "header") ?? "link",
+        type: (str("type") as "link" | "header" | "affiliate") ?? "link",
         title: str("title") ?? "Untitled",
         url: str("url"),
         sortOrder: next,
@@ -281,6 +284,29 @@ export default function EditPage({
                 </div>
               </Field>
 
+              <Field label="Page layout">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: "standard", label: "Two-column", hint: "About + support side by side" },
+                    { id: "stacked", label: "Stacked", hint: "Single column, link-in-bio style" },
+                  ].map((l) => (
+                    <label key={l.id} className="cursor-pointer">
+                      <input
+                        type="radio"
+                        name="layout"
+                        value={l.id}
+                        defaultChecked={(profile.layout ?? "standard") === l.id}
+                        className="peer sr-only"
+                      />
+                      <div className="rounded-2xl border-2 border-border p-3 transition peer-checked:border-primary peer-checked:bg-primary-50">
+                        <p className="font-semibold text-ink">{l.label}</p>
+                        <p className="text-xs text-muted">{l.hint}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </Field>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Monthly goal ($)" hint="Leave blank to hide">
                   <Input
@@ -392,6 +418,8 @@ export default function EditPage({
                     <GripVertical className="h-4 w-4 text-muted" />
                     {l.type === "header" ? (
                       <Badge tone="grape">Header</Badge>
+                    ) : l.type === "affiliate" ? (
+                      <Badge tone="sunny">Affiliate</Badge>
                     ) : (
                       <Badge tone="sky">Link</Badge>
                     )}
@@ -431,21 +459,29 @@ export default function EditPage({
                 </div>
               ))}
 
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-3">
                 <Form method="post">
                   <input type="hidden" name="intent" value="addLink" />
                   <input type="hidden" name="type" value="link" />
                   <input type="hidden" name="title" value="New link" />
-                  <Button type="submit" variant="soft" className="w-full">
-                    <Plus className="h-4 w-4" /> Add link
+                  <Button type="submit" variant="soft" size="sm" className="w-full">
+                    <Plus className="h-4 w-4" /> Link
+                  </Button>
+                </Form>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="addLink" />
+                  <input type="hidden" name="type" value="affiliate" />
+                  <input type="hidden" name="title" value="New affiliate link" />
+                  <Button type="submit" variant="soft" size="sm" className="w-full">
+                    <Plus className="h-4 w-4" /> Affiliate
                   </Button>
                 </Form>
                 <Form method="post">
                   <input type="hidden" name="intent" value="addLink" />
                   <input type="hidden" name="type" value="header" />
                   <input type="hidden" name="title" value="Section" />
-                  <Button type="submit" variant="outline" className="w-full">
-                    <Plus className="h-4 w-4" /> Add header
+                  <Button type="submit" variant="outline" size="sm" className="w-full">
+                    <Plus className="h-4 w-4" /> Header
                   </Button>
                 </Form>
               </div>

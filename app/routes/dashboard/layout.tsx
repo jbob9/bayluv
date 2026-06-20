@@ -8,9 +8,12 @@ import {
 import {
   LayoutDashboard,
   SquarePen,
+  FileText,
   Crown,
   ShoppingBag,
   Heart,
+  Megaphone,
+  BarChart3,
   Wallet,
   Settings,
   ExternalLink,
@@ -42,9 +45,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 const nav = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/dashboard/page", label: "My Page", icon: SquarePen },
+  { to: "/dashboard/posts", label: "Posts", icon: FileText },
   { to: "/dashboard/tiers", label: "Memberships", icon: Crown },
   { to: "/dashboard/products", label: "Shop", icon: ShoppingBag },
   { to: "/dashboard/supporters", label: "Supporters", icon: Heart },
+  { to: "/dashboard/broadcasts", label: "Broadcasts", icon: Megaphone },
+  { to: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/dashboard/payouts", label: "Payouts", icon: Wallet },
   { to: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

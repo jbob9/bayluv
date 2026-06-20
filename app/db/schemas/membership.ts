@@ -21,6 +21,9 @@ export const tier = sqliteTable(
     interval: text("interval", { enum: ["month", "year"] })
       .default("month")
       .notNull(),
+    /** Optional yearly price; when set, supporters can choose annual billing. */
+    yearlyPriceCents: integer("yearly_price_cents"),
+    stripeYearlyPriceId: text("stripe_yearly_price_id"),
     currency: text("currency").default("usd").notNull(),
     benefits: text("benefits", { mode: "json" }).$type<string[]>().default([]),
     imageUrl: text("image_url"),

@@ -88,6 +88,7 @@ export function SupportWidget({
               type="number"
               min={1}
               placeholder="…"
+              aria-label="Custom tip amount in dollars"
               value={custom}
               onChange={(e) => setCustom(e.target.value)}
               className={cn(
@@ -103,11 +104,13 @@ export function SupportWidget({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Name or @yoursocial"
+        aria-label="Your name or social handle"
       />
       <Textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Say something nice…"
+        aria-label="Your message"
       />
 
       <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-ink-soft">

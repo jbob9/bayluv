@@ -29,10 +29,16 @@ export const profile = sqliteTable(
     category: text("category"),
     /** Accent color token name (e.g. "primary", "mint", "sky", "grape"). */
     themeColor: text("theme_color").default("primary").notNull(),
+    /** Public page layout variant: "standard" (two-column) or "stacked". */
+    layout: text("layout", { enum: ["standard", "stacked"] })
+      .default("standard")
+      .notNull(),
     goalAmountCents: integer("goal_amount_cents"),
     goalLabel: text("goal_label"),
     /** Cached count of distinct supporters for fast page rendering. */
     supporterCount: integer("supporter_count").default(0).notNull(),
+    /** Cached lifetime public page-view count. */
+    pageViews: integer("page_views").default(0).notNull(),
     isPublished: integer("is_published", { mode: "boolean" })
       .default(false)
       .notNull(),

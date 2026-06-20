@@ -37,7 +37,13 @@ export function ProductCard({
         )}
       >
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={product.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <Icon className="h-7 w-7" />
         )}

@@ -1,15 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useFetcher, useSearchParams } from "react-router";
 import { desc, eq, and } from "drizzle-orm";
-import { Share2, ExternalLink, Heart, Eye } from "lucide-react";
+import { Share2, ExternalLink, Heart, Eye, Lock } from "lucide-react";
 import type { Route } from "./+types/$username";
 import { getPublicProfile } from "~/lib/profile.server";
 import { getOptionalUser } from "~/lib/session.server";
 import { db } from "~/db/index.server";
 import { support } from "~/db/schemas/payments";
-import { tier as tierTable } from "~/db/schemas/membership";
+import { profile as profileTable } from "~/db/schemas/profile";
+import { tier as tierTable, membership } from "~/db/schemas/membership";
+import { post as postTable } from "~/db/schemas/post";
 import { product as productTable } from "~/db/schemas/shop";
-import { asc } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { getTheme } from "~/lib/theme";
 import { cn, formatMoney } from "~/lib/utils";
 import { Logo } from "~/components/brand/logo";
@@ -27,9 +29,24 @@ import { ProductCard } from "~/components/profile/product-card";
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData?.profile) return [{ title: "Not found · bayluv" }];
   const p = loaderData.profile;
+  const title = `${p.displayName} · bayluv`;
+  const description =
+    p.tagline ?? p.bio ?? `Support ${p.displayName} on bayluv`;
+  const image = p.coverUrl ?? p.avatarUrl ?? undefined;
   return [
-    { title: `${p.displayName} · bayluv` },
-    { name: "description", content: p.tagline ?? p.bio ?? `Support ${p.displayName} on bayluv` },
+    { title },
+    { name: "description", content: description },
+    { property: "og:type", content: "profile" },
+    { property: "og:title", content: title },
+    { property: "og:description", content: description },
+    ...(image ? [{ property: "og:image", content: image }] : []),
+    {
+      name: "twitter:card",
+      content: image ? "summary_large_image" : "summary",
+    },
+    { name: "twitter:title", content: title },
+    { name: "twitter:description", content: description },
+    ...(image ? [{ name: "twitter:image", content: image }] : []),
   ];
 }
 
@@ -38,6 +55,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const profile = await getPublicProfile(params.username, viewer?.id);
   if (!profile) throw new Response("Not found", { status: 404 });
   const isPreview = !profile.isPublished;
+
+  // Count a page view for genuine visitors (not the owner, not drafts).
+  if (!isPreview && viewer?.id !== profile.userId) {
+    await db
+      .update(profileTable)
+      .set({ pageViews: sql`${profileTable.pageViews} + 1` })
+      .where(eq(profileTable.id, profile.id));
+  }
 
   const supporters = await db.query.support.findMany({
     where: and(
@@ -69,10 +94,57 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     orderBy: asc(productTable.sortOrder),
   });
 
+  // Posts + member gating ------------------------------------------------
+  const isOwner = viewer?.id === profile.userId;
+  const viewerMemberships = viewer
+    ? await db.query.membership.findMany({
+        where: and(
+          eq(membership.profileId, profile.id),
+          eq(membership.supporterUserId, viewer.id),
+        ),
+        with: { tier: true },
+      })
+    : [];
+  const activeMemberships = viewerMemberships.filter(
+    (m) => m.status === "active" || m.status === "trialing",
+  );
+  const isMember = activeMemberships.length > 0;
+  const maxMemberPrice = activeMemberships.reduce(
+    (m, x) => Math.max(m, x.tier?.priceCents ?? 0),
+    -1,
+  );
+
+  const rawPosts = await db.query.post.findMany({
+    where: and(eq(postTable.profileId, profile.id), eq(postTable.isPublished, true)),
+    orderBy: desc(postTable.createdAt),
+    with: { minTier: true },
+    limit: 20,
+  });
+
+  const posts = rawPosts.map((p) => {
+    let locked = false;
+    if (!isOwner) {
+      if (p.visibility === "members") locked = !isMember;
+      else if (p.visibility === "tier")
+        locked = maxMemberPrice < (p.minTier?.priceCents ?? 0);
+    }
+    return {
+      id: p.id,
+      title: p.title,
+      body: locked ? null : p.body,
+      coverUrl: p.coverUrl,
+      visibility: p.visibility,
+      minTierName: p.minTier?.name ?? null,
+      locked,
+      createdAt: p.createdAt,
+    };
+  });
+
   return {
     profile,
     isPreview,
     raisedCents,
+    posts,
     products: products.map((p) => ({
       id: p.id,
       name: p.name,
@@ -90,6 +162,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       benefits: t.benefits ?? [],
       accentColor: t.accentColor,
       imageUrl: t.imageUrl,
+      yearlyPriceCents: t.yearlyPriceCents,
       joinable: Boolean(t.stripePriceId),
     })),
     supporters: supporters.map((s) => ({
@@ -110,13 +183,15 @@ type CheckoutFetcher = {
 };
 
 export default function PublicProfile({ loaderData }: Route.ComponentProps) {
-  const { profile, supporters, tiers, products, isPreview, raisedCents } =
+  const { profile, supporters, tiers, products, posts, isPreview, raisedCents } =
     loaderData;
   const theme = getTheme(profile.themeColor);
   const { toast } = useToast();
   const [params, setParams] = useSearchParams();
   const fetcher = useFetcher<CheckoutFetcher>();
   const checkingOut = fetcher.state !== "idle";
+  const [cycle, setCycle] = useState<"month" | "year">("month");
+  const hasYearly = tiers.some((t) => t.yearlyPriceCents != null);
   const tags = (profile.category ?? "")
     .split(/[,|]/)
     .map((t) => t.trim())
@@ -135,9 +210,9 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
     }
   }, [fetcher.state, fetcher.data, toast]);
 
-  const joinTier = (tierId: string) =>
+  const joinTier = (tierId: string, cycle: "month" | "year") =>
     fetcher.submit(
-      { tierId, username: profile.username },
+      { tierId, username: profile.username, cycle },
       { method: "post", action: "/api/checkout/subscription" },
     );
 
@@ -230,7 +305,12 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
         )}
       >
         {profile.coverUrl && (
-          <img src={profile.coverUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={profile.coverUrl}
+            alt=""
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         )}
       </div>
 
@@ -255,8 +335,14 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
           </div>
         </div>
 
-        {/* Two columns — left: about/links/feed · right: support + shop */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_23rem]">
+        {/* Layout: "standard" = two columns · "stacked" = single column, support first */}
+        <div
+          className={cn(
+            profile.layout === "stacked"
+              ? "mx-auto flex max-w-xl flex-col gap-6"
+              : "grid gap-6 lg:grid-cols-[1fr_23rem]",
+          )}
+        >
           {/* LEFT */}
           <div className="space-y-6">
             {/* URL + goal card (Ko-fi style) */}
@@ -313,6 +399,73 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
               )}
             </Card>
 
+            {/* Posts */}
+            {posts.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="px-1 text-lg font-bold text-ink">Posts</h2>
+                {posts.map((p) => (
+                  <Card key={p.id} className="overflow-hidden">
+                    {p.coverUrl && !p.locked && (
+                      <img
+                        src={p.coverUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-40 w-full object-cover"
+                      />
+                    )}
+                    <div className="space-y-2 p-6">
+                      <div className="flex items-center gap-2">
+                        {p.visibility !== "public" && (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
+                              theme.soft,
+                            )}
+                          >
+                            <Lock className="h-3 w-3" />
+                            {p.minTierName ?? "Members"}
+                          </span>
+                        )}
+                        <time className="text-xs text-muted">
+                          {new Date(p.createdAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </time>
+                      </div>
+                      <h3 className="text-lg font-bold text-ink">{p.title}</h3>
+                      {p.locked ? (
+                        <div className="rounded-2xl border-2 border-dashed border-border bg-paper p-6 text-center">
+                          <Lock className="mx-auto mb-2 h-6 w-6 text-muted" />
+                          <p className="font-semibold text-ink">
+                            This post is for {p.minTierName ?? "members"}
+                          </p>
+                          <p className="mt-1 text-sm text-muted">
+                            Join to unlock it.
+                          </p>
+                          <a
+                            href="#support"
+                            className={cn(
+                              "mt-4 inline-flex h-10 items-center rounded-full px-5 text-sm font-bold text-white",
+                              theme.btn,
+                            )}
+                          >
+                            Become a member
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-line leading-relaxed text-ink-soft">
+                          {p.body}
+                        </p>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
             {/* Links */}
             {profile.links.length > 0 && (
               <div className="space-y-3">
@@ -334,6 +487,8 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
                         <img
                           src={l.thumbnailUrl}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
                           className="h-12 w-12 shrink-0 rounded-xl object-cover"
                         />
                       ) : (
@@ -346,12 +501,23 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
                           <ExternalLink className="h-5 w-5" />
                         </span>
                       )}
-                      <span className="flex-1 font-semibold text-ink">
+                      <span className="flex flex-1 items-center gap-2 font-semibold text-ink">
                         {l.title}
+                        {l.type === "affiliate" && (
+                          <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
+                            ad
+                          </span>
+                        )}
                       </span>
                       <ExternalLink className="h-4 w-4 text-muted transition-colors group-hover:text-ink" />
                     </a>
                   ),
+                )}
+                {profile.links.some((l) => l.type === "affiliate") && (
+                  <p className="px-1 text-xs text-muted">
+                    Some links are affiliate links — {profile.displayName.split(" ")[0]} may
+                    earn a commission, at no extra cost to you.
+                  </p>
                 )}
               </div>
             )}
@@ -391,13 +557,17 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
             )}
           </div>
 
-          {/* RIGHT */}
+          {/* RIGHT (support + shop) */}
           <div
-            id="support"
-            className="space-y-6 scroll-mt-24 lg:sticky lg:top-20 lg:self-start"
+            className={cn(
+              "space-y-6",
+              profile.layout === "stacked"
+                ? "order-first"
+                : "lg:sticky lg:top-20 lg:self-start",
+            )}
           >
             {/* Support card with One-time / Membership toggle */}
-            <Card className="p-6">
+            <Card id="support" className="scroll-mt-24 p-6">
               {tiers.length > 0 ? (
                 <Tabs defaultValue="onetime">
                   <TabsList className="w-full">
@@ -417,10 +587,30 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
                     />
                   </TabsContent>
                   <TabsContent value="membership" className="space-y-4 pt-5">
+                    {hasYearly && (
+                      <div className="mx-auto flex w-fit items-center gap-1 rounded-full bg-ink/5 p-1">
+                        {(["month", "year"] as const).map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setCycle(c)}
+                            className={cn(
+                              "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+                              cycle === c
+                                ? "bg-surface text-ink shadow-soft"
+                                : "text-muted hover:text-ink",
+                            )}
+                          >
+                            {c === "month" ? "Monthly" : "Yearly"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {tiers.map((t) => (
                       <TierCard
                         key={t.id}
                         tier={t}
+                        cycle={cycle}
                         pending={checkingOut}
                         onJoin={joinTier}
                       />

@@ -59,16 +59,33 @@ export async function action({ request }: Route.ActionArgs) {
     const description = String(form.get("description") ?? "").trim() || null;
     const benefits = parseBenefits(String(form.get("benefits") ?? ""));
     const accentColor = String(form.get("accentColor") ?? "primary");
+    const yearlyRaw = Number(form.get("yearlyPrice"));
+    const yearlyPriceCents =
+      yearlyRaw > 0 ? Math.round(yearlyRaw * 100) : null;
 
     if (intent === "addTier") {
-      let stripeIds: { productId: string; priceId: string } | null = null;
+      let productId: string | undefined;
+      let priceId: string | undefined;
+      let yearlyPriceId: string | undefined;
       if (hasStripe) {
-        stripeIds = await createTierPrice({
+        const base = await createTierPrice({
           name,
           description,
           amountCents: priceCents,
           interval,
         });
+        productId = base.productId;
+        priceId = base.priceId;
+        if (yearlyPriceCents) {
+          const yr = await createTierPrice({
+            name,
+            description,
+            amountCents: yearlyPriceCents,
+            interval: "year",
+            existingProductId: productId,
+          });
+          yearlyPriceId = yr.priceId;
+        }
       }
       const count = await db.query.tier.findMany({
         where: eq(tierTable.profileId, profile.id),
@@ -81,11 +98,13 @@ export async function action({ request }: Route.ActionArgs) {
         description,
         priceCents,
         interval,
+        yearlyPriceCents,
         benefits,
         accentColor,
         sortOrder,
-        stripeProductId: stripeIds?.productId,
-        stripePriceId: stripeIds?.priceId,
+        stripeProductId: productId,
+        stripePriceId: priceId,
+        stripeYearlyPriceId: yearlyPriceId,
       });
       return { ok: "Tier created" };
     }
@@ -97,8 +116,10 @@ export async function action({ request }: Route.ActionArgs) {
 
     const priceChanged =
       existing.priceCents !== priceCents || existing.interval !== interval;
+    const yearlyChanged = existing.yearlyPriceCents !== yearlyPriceCents;
     let priceId = existing.stripePriceId;
     let productId = existing.stripeProductId;
+    let yearlyPriceId = existing.stripeYearlyPriceId;
     if (hasStripe && (priceChanged || !priceId)) {
       const ids = await createTierPrice({
         name,
@@ -110,6 +131,20 @@ export async function action({ request }: Route.ActionArgs) {
       productId = ids.productId;
       priceId = ids.priceId;
     }
+    if (hasStripe && yearlyChanged) {
+      if (yearlyPriceCents) {
+        const yr = await createTierPrice({
+          name,
+          description,
+          amountCents: yearlyPriceCents,
+          interval: "year",
+          existingProductId: productId,
+        });
+        yearlyPriceId = yr.priceId;
+      } else {
+        yearlyPriceId = null;
+      }
+    }
 
     await db
       .update(tierTable)
@@ -118,10 +153,12 @@ export async function action({ request }: Route.ActionArgs) {
         description,
         priceCents,
         interval,
+        yearlyPriceCents,
         benefits,
         accentColor,
         stripeProductId: productId,
         stripePriceId: priceId,
+        stripeYearlyPriceId: yearlyPriceId,
       })
       .where(eq(tierTable.id, id));
     return { ok: "Tier saved" };
@@ -268,6 +305,19 @@ function TierForm({
           </select>
         </Field>
       </div>
+      <Field
+        label="Annual option ($/year)"
+        hint="Optional — let members pay yearly at a discount"
+      >
+        <Input
+          name="yearlyPrice"
+          type="number"
+          min={1}
+          step="0.01"
+          defaultValue={tier?.yearlyPriceCents ? tier.yearlyPriceCents / 100 : ""}
+          placeholder="e.g. 60"
+        />
+      </Field>
       <Field label="Description">
         <Textarea
           name="description"
