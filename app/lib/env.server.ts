@@ -18,6 +18,9 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET is required"),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:5173"),
 
+  // Comma-separated emails granted admin access (catalog management).
+  ADMIN_EMAILS: z.string().default(""),
+
   // Social login (optional — providers only register when both keys are present)
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
@@ -55,6 +58,9 @@ if (!parsed.success) {
 export const env = parsed.data;
 
 export const isProd = env.NODE_ENV === "production";
+export const adminEmails = env.ADMIN_EMAILS.split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 export const hasStripe = Boolean(env.STRIPE_SECRET_KEY);
 export const hasResend = Boolean(env.RESEND_API_KEY);
 export const hasR2 = Boolean(

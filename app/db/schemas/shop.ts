@@ -17,6 +17,11 @@ export const product = sqliteTable(
       .references(() => profile.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
+    /** Top-level kind. Physical products collect a shipping address at checkout. */
+    kind: text("kind", { enum: ["digital", "physical"] })
+      .default("digital")
+      .notNull(),
+    /** Digital sub-type (ignored for physical products). */
     type: text("type", { enum: ["digital", "call", "commission"] })
       .default("digital")
       .notNull(),
@@ -54,6 +59,16 @@ export const order = sqliteTable(
       onDelete: "set null",
     }),
     buyerEmail: text("buyer_email"),
+    /** Captured for physical orders so the creator can fulfill/ship. */
+    shippingName: text("shipping_name"),
+    shippingAddress: text("shipping_address", { mode: "json" }).$type<{
+      line1?: string;
+      line2?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    }>(),
     amountCents: integer("amount_cents").notNull(),
     feeCents: integer("fee_cents").default(0).notNull(),
     currency: text("currency").default("usd").notNull(),

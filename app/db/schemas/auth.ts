@@ -9,6 +9,10 @@ export const user = sqliteTable("user", {
     .default(false)
     .notNull(),
   image: text("image"),
+  /** Platform role. Admins manage the global affiliate catalog. */
+  role: text("role", { enum: ["user", "admin"] })
+    .default("user")
+    .notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),

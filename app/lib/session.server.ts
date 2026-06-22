@@ -3,6 +3,7 @@ import { auth } from "./auth.server";
 import { db } from "~/db/index.server";
 import { profile } from "~/db/schemas/profile";
 import { eq } from "drizzle-orm";
+import { adminEmails } from "./env.server";
 
 /** Returns the better-auth session (user + session) or null. */
 export async function getSession(request: Request) {
@@ -44,4 +45,21 @@ export async function requireProfile(request: Request) {
 /** Looks up the current user's profile without forcing onboarding. */
 export async function getUserProfile(userId: string) {
   return db.query.profile.findFirst({ where: eq(profile.userId, userId) });
+}
+
+/** True if the user is an admin (by role column or the ADMIN_EMAILS allowlist). */
+export function isAdminUser(user: {
+  role?: string | null;
+  email: string;
+}): boolean {
+  return user.role === "admin" || adminEmails.includes(user.email.toLowerCase());
+}
+
+/** Requires an authenticated admin; otherwise 403 (or redirect to login). */
+export async function requireAdmin(request: Request) {
+  const user = await requireUser(request);
+  if (!isAdminUser(user as { role?: string | null; email: string })) {
+    throw new Response("Forbidden", { status: 403 });
+  }
+  return user;
 }

@@ -106,12 +106,29 @@ async function markOrderPaid(session: Stripe.Checkout.Session) {
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : null;
 
+  // Capture the shipping address for physical orders so the creator can fulfill.
+  const ship = (session as unknown as {
+    shipping_details?: { name?: string | null; address?: Stripe.Address | null };
+  }).shipping_details;
+  const addr = ship?.address ?? null;
+
   await db
     .update(order)
     .set({
       status: "paid",
       stripePaymentIntentId: paymentIntentId,
       buyerEmail: row.buyerEmail ?? session.customer_details?.email ?? null,
+      shippingName: ship?.name ?? null,
+      shippingAddress: addr
+        ? {
+            line1: addr.line1 ?? undefined,
+            line2: addr.line2 ?? undefined,
+            city: addr.city ?? undefined,
+            state: addr.state ?? undefined,
+            postalCode: addr.postal_code ?? undefined,
+            country: addr.country ?? undefined,
+          }
+        : null,
     })
     .where(and(eq(order.id, orderId), eq(order.status, "pending")));
 

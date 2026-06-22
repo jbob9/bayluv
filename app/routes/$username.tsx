@@ -11,6 +11,7 @@ import { profile as profileTable } from "~/db/schemas/profile";
 import { tier as tierTable, membership } from "~/db/schemas/membership";
 import { post as postTable } from "~/db/schemas/post";
 import { product as productTable } from "~/db/schemas/shop";
+import { creatorAffiliateProduct } from "~/db/schemas/affiliate";
 import { asc, sql } from "drizzle-orm";
 import { getTheme } from "~/lib/theme";
 import { cn, formatMoney } from "~/lib/utils";
@@ -94,6 +95,24 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     orderBy: asc(productTable.sortOrder),
   });
 
+  const affiliatePicksRaw = await db.query.creatorAffiliateProduct.findMany({
+    where: and(
+      eq(creatorAffiliateProduct.profileId, profile.id),
+      eq(creatorAffiliateProduct.isActive, true),
+    ),
+    orderBy: asc(creatorAffiliateProduct.sortOrder),
+    with: { product: true },
+  });
+  const affiliatePicks = affiliatePicksRaw
+    .filter((s) => s.product?.isActive)
+    .map((s) => ({
+      selectionId: s.id,
+      title: s.product!.title,
+      imageUrl: s.product!.imageUrl,
+      priceCents: s.product!.priceCents,
+      network: s.product!.network,
+    }));
+
   // Posts + member gating ------------------------------------------------
   const isOwner = viewer?.id === profile.userId;
   const viewerMemberships = viewer
@@ -151,8 +170,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       description: p.description,
       priceCents: p.priceCents,
       type: p.type,
+      kind: p.kind,
       imageUrl: p.imageUrl,
     })),
+    affiliatePicks,
     tiers: tiers.map((t) => ({
       id: t.id,
       name: t.name,
@@ -183,8 +204,10 @@ type CheckoutFetcher = {
 };
 
 export default function PublicProfile({ loaderData }: Route.ComponentProps) {
-  const { profile, supporters, tiers, products, posts, isPreview, raisedCents } =
+  const { profile, supporters, tiers, products, posts, affiliatePicks, isPreview, raisedCents } =
     loaderData;
+  const digitalProducts = products.filter((p) => p.kind === "digital");
+  const physicalProducts = products.filter((p) => p.kind === "physical");
   const theme = getTheme(profile.themeColor);
   const { toast } = useToast();
   const [params, setParams] = useSearchParams();
@@ -628,20 +651,98 @@ export default function PublicProfile({ loaderData }: Route.ComponentProps) {
             </Card>
 
             {/* Shop */}
-            {products.length > 0 && (
-              <Card className="p-6">
-                <h2 className="mb-4 text-lg font-bold text-ink">Shop</h2>
-                <div className="space-y-3">
-                  {products.map((p) => (
-                    <ProductCard
-                      key={p.id}
-                      product={p}
-                      themeColor={profile.themeColor}
-                      pending={checkingOut}
-                      onBuy={buyProduct}
-                    />
-                  ))}
-                </div>
+            {(products.length > 0 || affiliatePicks.length > 0) && (
+              <Card className="space-y-5 p-6">
+                <h2 className="text-lg font-bold text-ink">Shop</h2>
+
+                {digitalProducts.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-muted">
+                      Digital
+                    </h3>
+                    {digitalProducts.map((p) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        themeColor={profile.themeColor}
+                        pending={checkingOut}
+                        onBuy={buyProduct}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {physicalProducts.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-muted">
+                      Physical
+                    </h3>
+                    {physicalProducts.map((p) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        themeColor={profile.themeColor}
+                        pending={checkingOut}
+                        onBuy={buyProduct}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {affiliatePicks.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-muted">
+                      Recommended
+                    </h3>
+                    {affiliatePicks.map((a) => (
+                      <a
+                        key={a.selectionId}
+                        href={`/a/${a.selectionId}`}
+                        target="_blank"
+                        rel="noreferrer nofollow sponsored"
+                        className="group flex gap-4 rounded-2xl border border-border bg-surface p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-card"
+                      >
+                        <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl bg-ink/5">
+                          {a.imageUrl ? (
+                            <img
+                              src={a.imageUrl}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <ExternalLink className="h-5 w-5 text-muted" />
+                          )}
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="flex items-center gap-2">
+                            <span className="truncate font-semibold text-ink">
+                              {a.title}
+                            </span>
+                            <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
+                              ad
+                            </span>
+                          </span>
+                          <span className="mt-auto flex items-center justify-between pt-1">
+                            {a.priceCents != null && (
+                              <span className="font-bold text-ink">
+                                {formatMoney(a.priceCents)}
+                              </span>
+                            )}
+                            <span className={cn("text-sm font-semibold", theme.text)}>
+                              View →
+                            </span>
+                          </span>
+                        </div>
+                      </a>
+                    ))}
+                    <p className="text-xs text-muted">
+                      Recommended products are affiliate links —{" "}
+                      {profile.displayName.split(" ")[0]} may earn a commission.
+                    </p>
+                  </div>
+                )}
               </Card>
             )}
           </div>

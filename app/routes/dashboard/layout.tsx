@@ -16,6 +16,7 @@ import {
   BarChart3,
   Wallet,
   Settings,
+  ShieldCheck,
   ExternalLink,
   Menu,
   X,
@@ -24,7 +25,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import type { Route } from "./+types/layout";
-import { requireProfile } from "~/lib/session.server";
+import { requireProfile, isAdminUser } from "~/lib/session.server";
 import { Logo } from "~/components/brand/logo";
 import { Avatar } from "~/components/ui/avatar";
 import { cn } from "~/lib/utils";
@@ -33,6 +34,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { user, profile } = await requireProfile(request);
   return {
     user: { name: user.name, image: user.image },
+    isAdmin: isAdminUser(user as { role?: string | null; email: string }),
     profile: {
       username: profile.username,
       displayName: profile.displayName,
@@ -58,7 +60,7 @@ const nav = [
 const STORAGE_KEY = "bayluv:sidebar-collapsed";
 
 export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
-  const { profile, user } = loaderData;
+  const { profile, user, isAdmin } = loaderData;
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -126,6 +128,25 @@ export default function DashboardLayout({ loaderData }: Route.ComponentProps) {
             {!mini && label}
           </NavLink>
         ))}
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            onClick={() => setOpen(false)}
+            title={mini ? "Admin" : undefined}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center rounded-xl text-[15px] font-semibold transition-colors",
+                mini ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
+                isActive
+                  ? "bg-sunny-soft text-[#946100]"
+                  : "text-ink-soft hover:bg-ink/5 hover:text-ink",
+              )
+            }
+          >
+            <ShieldCheck className="h-5 w-5 shrink-0" />
+            {!mini && "Admin"}
+          </NavLink>
+        )}
       </nav>
 
       <div className="space-y-1 border-t border-border p-3">

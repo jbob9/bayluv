@@ -40,8 +40,19 @@ export default [
   route("api/checkout/product", "routes/api.checkout.product.tsx"),
   route("api/webhooks/stripe", "routes/api.webhooks.stripe.tsx"),
 
+  // Admin (affiliate catalog) — guarded by requireAdmin
+  ...prefix("admin", [
+    layout("routes/admin/layout.tsx", [
+      index("routes/admin/index.tsx"),
+      route("affiliate-products", "routes/admin/affiliate-products.tsx"),
+    ]),
+  ]),
+
   // Supporter account (manage memberships)
   route("account", "routes/account.tsx"),
+
+  // Affiliate outbound redirect (injects the creator's tag + counts clicks)
+  route("a/:selectionId", "routes/a.$selectionId.tsx"),
 
   // Post-purchase download / access page
   route("d/:orderId", "routes/d.$orderId.tsx"),

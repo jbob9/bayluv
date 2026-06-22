@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import type Stripe from "stripe";
 import type { Route } from "./+types/api.checkout.product";
 import { db } from "~/db/index.server";
 import { product as productTable, order } from "~/db/schemas/shop";
@@ -10,6 +11,13 @@ import {
   platformFeeCents,
   appUrl,
 } from "~/lib/stripe.server";
+
+// Countries we let buyers ship to (Stripe requires an explicit list).
+const SHIP_COUNTRIES: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[] =
+  [
+    "US", "CA", "GB", "IE", "AU", "NZ", "FR", "DE", "ES", "IT", "NL", "BE",
+    "AT", "CH", "SE", "NO", "DK", "FI", "PT", "JP", "HT",
+  ];
 
 // POST /api/checkout/product — buy a product (one-tap checkout).
 export async function action({ request }: Route.ActionArgs) {
@@ -78,6 +86,10 @@ export async function action({ request }: Route.ActionArgs) {
       transfer_data: { destination: acct.stripeAccountId },
       metadata,
     },
+    // Physical goods: collect a shipping address so the creator can fulfill.
+    ...(product.kind === "physical"
+      ? { shipping_address_collection: { allowed_countries: SHIP_COUNTRIES } }
+      : {}),
     customer_email: viewer?.email,
     success_url: appUrl(`/d/${row.id}?token=${accessToken}`),
     cancel_url: appUrl(`/${product.profile.username}?support=cancel`),
