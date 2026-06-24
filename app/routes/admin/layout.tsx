@@ -8,6 +8,7 @@ import { cn } from "~/lib/utils";
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
+  
   return null;
 }
 

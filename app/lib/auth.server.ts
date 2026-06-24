@@ -1,9 +1,9 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink, emailOTP } from "better-auth/plugins";
+import { emailOTP, magicLink } from "better-auth/plugins";
 import { db, schema } from "~/db/index.server";
-import { env } from "./env.server";
 import { sendEmail } from "./email.server";
+import { env } from "./env.server";
 
 /** Social providers register only when both id + secret are present. */
 const socialProviders: BetterAuthOptions["socialProviders"] = {};
@@ -29,6 +29,11 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+  },
+  user: {
+    additionalFields: {
+      role: { type: "string" },
+    },
   },
   socialProviders,
   plugins: [

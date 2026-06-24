@@ -1,6 +1,6 @@
-import { Form, useNavigation } from "react-router";
+import { Form } from "react-router";
 import { and, asc, eq } from "drizzle-orm";
-import { Plus, Trash2, Crown, Check } from "lucide-react";
+import { Plus, Trash2, Crown, Check, Pencil } from "lucide-react";
 import type { Route } from "./+types/tiers";
 import { requireProfile } from "~/lib/session.server";
 import { db } from "~/db/index.server";
@@ -10,8 +10,9 @@ import { useActionToast } from "~/lib/use-action-toast";
 import { THEME_COLORS } from "~/lib/theme";
 import { formatMoney } from "~/lib/utils";
 import { PageHeader } from "~/components/dashboard/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
+import { FormDialog } from "~/components/ui/form-dialog";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Field } from "~/components/ui/label";
@@ -190,8 +191,6 @@ export default function Tiers({
   actionData,
 }: Route.ComponentProps) {
   const { tiers, stripeReady } = loaderData;
-  const nav = useNavigation();
-  const busy = nav.state !== "idle";
   useActionToast(actionData);
 
   return (
@@ -199,6 +198,15 @@ export default function Tiers({
       <PageHeader
         title="Memberships"
         subtitle="Offer recurring tiers to your biggest fans."
+        action={
+          <FormDialog
+            title="New tier"
+            submitLabel="Create tier"
+            trigger={{ label: "New tier", icon: Plus }}
+          >
+            <TierFields intent="addTier" />
+          </FormDialog>
+        }
       />
 
       {!stripeReady && (
@@ -208,76 +216,83 @@ export default function Tiers({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {tiers.map((t) => (
-          <Card key={t.id}>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Crown className="h-5 w-5 text-sunny" /> {t.name}
-              </CardTitle>
-              <div className="flex items-center gap-2">
+      {tiers.length === 0 ? (
+        <Card className="border-2 border-dashed border-border bg-paper p-12 text-center text-ink-soft">
+          <Crown className="mx-auto mb-3 h-8 w-8 text-muted" />
+          No tiers yet — create your first membership.
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {tiers.map((t) => (
+            <Card key={t.id} className="flex flex-col gap-3 p-5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-sunny-soft text-[#946100]">
+                    <Crown className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="font-bold text-ink">{t.name}</p>
+                    <p className="text-sm text-muted">
+                      {formatMoney(t.priceCents)}/{t.interval}
+                      {t.yearlyPriceCents != null &&
+                        ` · ${formatMoney(t.yearlyPriceCents)}/yr`}
+                    </p>
+                  </div>
+                </div>
                 {t.isActive ? (
                   <Badge tone="success">Live</Badge>
                 ) : (
                   <Badge tone="neutral">Hidden</Badge>
                 )}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <TierForm tier={t} busy={busy} />
-              {/* Separate sibling forms (not nested) for toggle + delete */}
-              <div className="flex items-center gap-2 border-t border-border pt-3">
+              <div className="mt-auto flex items-center gap-1 border-t border-border pt-3">
+                <FormDialog
+                  title="Edit tier"
+                  submitLabel="Save tier"
+                  trigger={{ label: "Edit", icon: Pencil, variant: "outline", size: "sm" }}
+                >
+                  <TierFields tier={t} intent="updateTier" />
+                </FormDialog>
                 <Form method="post">
                   <input type="hidden" name="intent" value="toggleTier" />
                   <input type="hidden" name="id" value={t.id} />
-                  <Button type="submit" variant="outline" size="sm" disabled={busy}>
+                  <Button type="submit" variant="ghost" size="sm">
                     {t.isActive ? "Hide" : "Show"}
                   </Button>
                 </Form>
-                <Form method="post">
+                <Form method="post" className="ml-auto">
                   <input type="hidden" name="intent" value="deleteTier" />
                   <input type="hidden" name="id" value={t.id} />
                   <Button
                     type="submit"
                     variant="ghost"
-                    size="sm"
-                    disabled={busy}
+                    size="icon"
+                    aria-label="Delete tier"
                     className="text-muted hover:text-danger"
                   >
-                    <Trash2 className="h-4 w-4" /> Delete
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </Form>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {/* New tier */}
-        <Card className="border-2 border-dashed border-border bg-paper">
-          <CardHeader>
-            <CardTitle>Add a tier</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TierForm busy={busy} />
-          </CardContent>
-        </Card>
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </>
   );
 }
 
-function TierForm({
+function TierFields({
   tier,
-  busy,
+  intent,
 }: {
   tier?: Route.ComponentProps["loaderData"]["tiers"][number];
-  busy: boolean;
+  intent: "addTier" | "updateTier";
 }) {
-  const isEdit = Boolean(tier);
   return (
-    <Form method="post" className="space-y-4">
-      <input type="hidden" name="intent" value={isEdit ? "updateTier" : "addTier"} />
-      {isEdit && <input type="hidden" name="id" value={tier!.id} />}
+    <>
+      <input type="hidden" name="intent" value={intent} />
+      {tier && <input type="hidden" name="id" value={tier.id} />}
 
       <Field label="Tier name">
         <Input name="name" defaultValue={tier?.name ?? ""} placeholder="Super Fan" required />
@@ -355,14 +370,6 @@ function TierForm({
           ))}
         </div>
       </Field>
-
-      <Button type="submit" disabled={busy}>
-        {isEdit ? "Save tier" : (
-          <>
-            <Plus className="h-4 w-4" /> Create tier
-          </>
-        )}
-      </Button>
-    </Form>
+    </>
   );
 }

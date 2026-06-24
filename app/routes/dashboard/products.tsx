@@ -10,6 +10,7 @@ import {
   Package,
   Tag,
   Check,
+  Pencil,
   MousePointerClick,
 } from "lucide-react";
 import type { Route } from "./+types/products";
@@ -28,6 +29,7 @@ import { PageHeader } from "~/components/dashboard/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/components/ui/tabs";
 import { Button } from "~/components/ui/button";
+import { FormDialog } from "~/components/ui/form-dialog";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Field } from "~/components/ui/label";
@@ -227,7 +229,7 @@ export default function Products({ loaderData, actionData }: Route.ComponentProp
 
         {/* DIGITAL */}
         <TabsContent value="digital" className="pt-6">
-          <OwnProducts kind="digital" products={digital} busy={busy} />
+          <OwnProducts kind="digital" products={digital} />
         </TabsContent>
 
         {/* PHYSICAL */}
@@ -235,7 +237,7 @@ export default function Products({ loaderData, actionData }: Route.ComponentProp
           <div className="mb-4 rounded-2xl bg-sky-soft px-4 py-3 text-sm font-medium text-sky">
             Physical products collect the buyer's shipping address at checkout — you fulfill &amp; ship.
           </div>
-          <OwnProducts kind="physical" products={physical} busy={busy} />
+          <OwnProducts kind="physical" products={physical} />
         </TabsContent>
 
         {/* AFFILIATE */}
@@ -347,89 +349,106 @@ export default function Products({ loaderData, actionData }: Route.ComponentProp
 function OwnProducts({
   kind,
   products,
-  busy,
 }: {
   kind: "digital" | "physical";
   products: Route.ComponentProps["loaderData"]["digital"];
-  busy: boolean;
 }) {
+  const label = kind === "physical" ? "physical product" : "digital product";
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      {products.map((p) => {
-        const Icon = kind === "physical" ? Package : typeMeta[p.type].icon;
-        return (
-          <Card key={p.id}>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Icon className="h-5 w-5 text-primary" /> {p.name}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge tone="neutral">{p.salesCount} sold</Badge>
-                {p.isActive ? (
-                  <Badge tone="success">Live</Badge>
-                ) : (
-                  <Badge tone="neutral">Hidden</Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ProductForm product={p} kind={kind} busy={busy} />
-              <div className="flex items-center gap-2 border-t border-border pt-3">
-                <Form method="post">
-                  <input type="hidden" name="intent" value="toggleProduct" />
-                  <input type="hidden" name="id" value={p.id} />
-                  <Button type="submit" variant="outline" size="sm" disabled={busy}>
-                    {p.isActive ? "Hide" : "Show"}
-                  </Button>
-                </Form>
-                <Form method="post">
-                  <input type="hidden" name="intent" value="deleteProduct" />
-                  <input type="hidden" name="id" value={p.id} />
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    className="text-muted hover:text-danger"
-                  >
-                    <Trash2 className="h-4 w-4" /> Delete
-                  </Button>
-                </Form>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <FormDialog
+          title={`New ${label}`}
+          submitLabel="Create product"
+          trigger={{ label: `Add ${label}`, icon: Plus }}
+        >
+          <ProductFields kind={kind} intent="addProduct" />
+        </FormDialog>
+      </div>
 
-      <Card className="border-2 border-dashed border-border bg-paper">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" /> Add {kind} product
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ProductForm kind={kind} busy={busy} />
-        </CardContent>
-      </Card>
+      {products.length === 0 ? (
+        <Card className="border-2 border-dashed border-border bg-paper p-12 text-center text-ink-soft">
+          <ShoppingBag className="mx-auto mb-3 h-8 w-8 text-muted" />
+          No {label}s yet.
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {products.map((p) => {
+            const Icon = kind === "physical" ? Package : typeMeta[p.type].icon;
+            return (
+              <Card key={p.id} className="flex items-center gap-4 p-4">
+                {p.imageUrl ? (
+                  <img
+                    src={p.imageUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-primary-100 text-primary-700">
+                    <Icon className="h-6 w-6" />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-ink">{p.name}</p>
+                  <p className="mt-0.5 flex items-center gap-2 text-sm text-muted">
+                    {formatMoney(p.priceCents)} · {p.salesCount} sold
+                    {!p.isActive && <Badge tone="neutral">Hidden</Badge>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <FormDialog
+                    title={`Edit ${label}`}
+                    submitLabel="Save product"
+                    trigger={{ label: "Edit", icon: Pencil, variant: "outline", size: "sm" }}
+                  >
+                    <ProductFields product={p} kind={kind} intent="updateProduct" />
+                  </FormDialog>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="toggleProduct" />
+                    <input type="hidden" name="id" value={p.id} />
+                    <Button type="submit" variant="ghost" size="sm">
+                      {p.isActive ? "Hide" : "Show"}
+                    </Button>
+                  </Form>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="deleteProduct" />
+                    <input type="hidden" name="id" value={p.id} />
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Delete product"
+                      className="text-muted hover:text-danger"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </Form>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function ProductForm({
+function ProductFields({
   product,
   kind,
-  busy,
+  intent,
 }: {
   product?: Route.ComponentProps["loaderData"]["digital"][number];
   kind: "digital" | "physical";
-  busy: boolean;
+  intent: "addProduct" | "updateProduct";
 }) {
-  const isEdit = Boolean(product);
   return (
-    <Form method="post" className="space-y-4">
-      <input type="hidden" name="intent" value={isEdit ? "updateProduct" : "addProduct"} />
+    <>
+      <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="kind" value={kind} />
-      {isEdit && <input type="hidden" name="id" value={product!.id} />}
+      {product && <input type="hidden" name="id" value={product.id} />}
 
       <Field label="Name">
         <Input name="name" defaultValue={product?.name ?? ""} required />
@@ -488,13 +507,6 @@ function ProductForm({
           </Field>
         </>
       )}
-      <Button type="submit" disabled={busy}>
-        {isEdit ? "Save product" : (
-          <>
-            <Plus className="h-4 w-4" /> Create product
-          </>
-        )}
-      </Button>
-    </Form>
+    </>
   );
 }

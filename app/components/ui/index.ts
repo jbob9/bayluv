@@ -8,5 +8,6 @@ export { Badge } from "./badge";
 export { Progress } from "./progress";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export { Dialog } from "./dialog";
+export { FormDialog } from "./form-dialog";
 export { DropdownMenu, DropdownItem, DropdownSeparator } from "./dropdown-menu";
 export { ToastProvider, useToast } from "./toast";

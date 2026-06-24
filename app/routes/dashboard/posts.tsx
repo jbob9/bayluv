@@ -1,6 +1,6 @@
-import { Form, useNavigation } from "react-router";
+import { Form } from "react-router";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { FileText, Trash2, Plus, Globe, Lock, Crown } from "lucide-react";
+import { FileText, Trash2, Plus, Globe, Lock, Crown, Pencil } from "lucide-react";
 import type { Route } from "./+types/posts";
 import { requireProfile } from "~/lib/session.server";
 import { db } from "~/db/index.server";
@@ -8,8 +8,9 @@ import { post as postTable } from "~/db/schemas/post";
 import { tier as tierTable } from "~/db/schemas/membership";
 import { useActionToast } from "~/lib/use-action-toast";
 import { PageHeader } from "~/components/dashboard/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
+import { FormDialog } from "~/components/ui/form-dialog";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Field } from "~/components/ui/label";
@@ -88,8 +89,6 @@ const visBadge = {
 
 export default function Posts({ loaderData, actionData }: Route.ComponentProps) {
   const { posts, tiers } = loaderData;
-  const nav = useNavigation();
-  const busy = nav.state !== "idle";
   useActionToast(actionData);
 
   return (
@@ -97,85 +96,101 @@ export default function Posts({ loaderData, actionData }: Route.ComponentProps) 
       <PageHeader
         title="Posts"
         subtitle="Share updates — free or members-only."
+        action={
+          <FormDialog
+            title="New post"
+            submitLabel="Publish post"
+            trigger={{ label: "New post", icon: Plus }}
+          >
+            <PostFields tiers={tiers} intent="addPost" />
+          </FormDialog>
+        }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        {/* Existing posts */}
-        <div className="space-y-4">
-          {posts.length === 0 ? (
-            <Card className="border-2 border-dashed border-border bg-paper">
-              <CardContent className="p-10 text-center text-ink-soft">
-                <FileText className="mx-auto mb-3 h-8 w-8 text-muted" />
-                No posts yet. Write your first one →
-              </CardContent>
-            </Card>
-          ) : (
-            posts.map((p) => {
-              const v = visBadge[p.visibility];
-              return (
-                <Card key={p.id}>
-                  <CardContent className="space-y-3 p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge tone={v.tone}>
-                        <v.icon className="h-3 w-3" /> {v.label}
-                      </Badge>
-                      <Form method="post">
-                        <input type="hidden" name="intent" value="deletePost" />
-                        <input type="hidden" name="id" value={p.id} />
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="sm"
-                          disabled={busy}
-                          className="text-muted hover:text-danger"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </Form>
-                    </div>
-                    <details>
-                      <summary className="cursor-pointer font-bold text-ink">
-                        {p.title}
-                      </summary>
-                      <PostForm post={p} tiers={tiers} busy={busy} />
-                    </details>
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-
-        {/* New post */}
-        <Card className="lg:sticky lg:top-6 lg:self-start">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" /> New post
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PostForm tiers={tiers} busy={busy} />
+      {posts.length === 0 ? (
+        <Card className="border-2 border-dashed border-border bg-paper">
+          <CardContent className="p-12 text-center text-ink-soft">
+            <FileText className="mx-auto mb-3 h-8 w-8 text-muted" />
+            No posts yet — write your first one.
           </CardContent>
         </Card>
-      </div>
+      ) : (
+        <div className="space-y-3">
+          {posts.map((p) => {
+            const v = visBadge[p.visibility];
+            return (
+              <Card key={p.id} className="flex items-center gap-4 p-4">
+                {p.coverUrl ? (
+                  <img
+                    src={p.coverUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-ink/5 text-muted">
+                    <FileText className="h-6 w-6" />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-ink">{p.title}</p>
+                  <p className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                    <Badge tone={v.tone}>
+                      <v.icon className="h-3 w-3" /> {v.label}
+                    </Badge>
+                    {new Date(p.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <FormDialog
+                    title="Edit post"
+                    submitLabel="Save post"
+                    trigger={{
+                      label: "Edit",
+                      icon: Pencil,
+                      variant: "outline",
+                      size: "sm",
+                    }}
+                  >
+                    <PostFields post={p} tiers={tiers} intent="updatePost" />
+                  </FormDialog>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="deletePost" />
+                    <input type="hidden" name="id" value={p.id} />
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Delete post"
+                      className="text-muted hover:text-danger"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </Form>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }
 
-function PostForm({
+function PostFields({
   post,
   tiers,
-  busy,
+  intent,
 }: {
   post?: Route.ComponentProps["loaderData"]["posts"][number];
   tiers: { id: string; name: string }[];
-  busy: boolean;
+  intent: "addPost" | "updatePost";
 }) {
-  const isEdit = Boolean(post);
   return (
-    <Form method="post" className="mt-3 space-y-4">
-      <input type="hidden" name="intent" value={isEdit ? "updatePost" : "addPost"} />
-      {isEdit && <input type="hidden" name="id" value={post!.id} />}
+    <>
+      <input type="hidden" name="intent" value={intent} />
+      {post && <input type="hidden" name="id" value={post.id} />}
       <Field label="Title">
         <Input name="title" defaultValue={post?.title ?? ""} required />
       </Field>
@@ -218,9 +233,6 @@ function PostForm({
           </select>
         </Field>
       )}
-      <Button type="submit" disabled={busy}>
-        {isEdit ? "Save post" : "Publish post"}
-      </Button>
-    </Form>
+    </>
   );
 }

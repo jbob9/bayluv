@@ -1,6 +1,6 @@
-import { Form, useNavigation } from "react-router";
+import { Form } from "react-router";
 import { desc, eq } from "drizzle-orm";
-import { PackageSearch, Trash2, Plus, Download } from "lucide-react";
+import { PackageSearch, Trash2, Plus, Download, Pencil } from "lucide-react";
 import type { Route } from "./+types/affiliate-products";
 import { requireAdmin } from "~/lib/session.server";
 import { db } from "~/db/index.server";
@@ -10,8 +10,9 @@ import { getSource } from "~/lib/affiliate-sources.server";
 import { formatMoney } from "~/lib/utils";
 import { useActionToast } from "~/lib/use-action-toast";
 import { PageHeader } from "~/components/dashboard/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
+import { FormDialog } from "~/components/ui/form-dialog";
 import { Input } from "~/components/ui/input";
 import { Textarea } from "~/components/ui/textarea";
 import { Field } from "~/components/ui/label";
@@ -102,8 +103,6 @@ export default function AffiliateProducts({
   actionData,
 }: Route.ComponentProps) {
   const { products } = loaderData;
-  const nav = useNavigation();
-  const busy = nav.state !== "idle";
   useActionToast(actionData);
 
   return (
@@ -111,124 +110,104 @@ export default function AffiliateProducts({
       <PageHeader
         title="Affiliate catalog"
         subtitle="Products creators can feature. Creators earn via their own tags."
+        action={
+          <div className="flex items-center gap-2">
+            <FormDialog
+              title="Import from API"
+              submitLabel="Import"
+              trigger={{ label: "Import", icon: Download, variant: "outline" }}
+            >
+              <input type="hidden" name="intent" value="import" />
+              <Field label="Network">
+                <NetworkSelect />
+              </Field>
+              <Field label="Search query">
+                <Input name="query" placeholder="e.g. mechanical keyboard" />
+              </Field>
+              <p className="text-xs text-muted">
+                API import is stubbed until network keys are configured — add
+                products manually for now.
+              </p>
+            </FormDialog>
+            <FormDialog
+              title="Add catalog product"
+              submitLabel="Add to catalog"
+              trigger={{ label: "Add product", icon: Plus }}
+            >
+              <CatalogFields intent="add" />
+            </FormDialog>
+          </div>
+        }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        {/* Catalog list */}
-        <div className="space-y-4">
-          {products.length === 0 ? (
-            <Card className="border-2 border-dashed border-border bg-paper">
-              <CardContent className="p-10 text-center text-ink-soft">
-                <PackageSearch className="mx-auto mb-3 h-8 w-8 text-muted" />
-                Catalog is empty — add a product →
-              </CardContent>
-            </Card>
-          ) : (
-            products.map((p) => (
-              <Card key={p.id}>
-                <CardContent className="space-y-3 p-5">
-                  <div className="flex items-center gap-3">
-                    {p.imageUrl ? (
-                      <img
-                        src={p.imageUrl}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="h-14 w-14 shrink-0 rounded-xl object-cover"
-                      />
-                    ) : (
-                      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-ink/5 text-muted">
-                        <PackageSearch className="h-6 w-6" />
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-bold text-ink">{p.title}</p>
-                      <p className="text-sm text-muted">
-                        {networkLabel(p.network)}
-                        {p.priceCents != null && ` · ${formatMoney(p.priceCents)}`}
-                        {p.category && ` · ${p.category}`}
-                      </p>
-                    </div>
-                    {p.isActive ? (
-                      <Badge tone="success">Live</Badge>
-                    ) : (
-                      <Badge tone="neutral">Hidden</Badge>
-                    )}
-                  </div>
-                  <details>
-                    <summary className="cursor-pointer text-sm font-semibold text-primary">
-                      Edit
-                    </summary>
-                    <CatalogForm product={p} busy={busy} />
-                  </details>
-                  <div className="flex gap-2 border-t border-border pt-3">
-                    <Form method="post">
-                      <input type="hidden" name="intent" value="toggle" />
-                      <input type="hidden" name="id" value={p.id} />
-                      <Button type="submit" variant="outline" size="sm" disabled={busy}>
-                        {p.isActive ? "Hide" : "Show"}
-                      </Button>
-                    </Form>
-                    <Form method="post">
-                      <input type="hidden" name="intent" value="delete" />
-                      <input type="hidden" name="id" value={p.id} />
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy}
-                        className="text-muted hover:text-danger"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </Form>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-
-        {/* Add + import */}
-        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" /> Add product
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CatalogForm busy={busy} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" /> Import from API
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Form method="post" className="space-y-3">
-                <input type="hidden" name="intent" value="import" />
-                <Field label="Network">
-                  <NetworkSelect />
-                </Field>
-                <Field label="Search query">
-                  <Input name="query" placeholder="e.g. mechanical keyboard" />
-                </Field>
-                <Button type="submit" variant="soft" disabled={busy}>
-                  <Download className="h-4 w-4" /> Import
-                </Button>
-                <p className="text-xs text-muted">
-                  API import is stubbed until network keys are configured — add
-                  products manually for now.
+      {products.length === 0 ? (
+        <Card className="border-2 border-dashed border-border bg-paper p-12 text-center text-ink-soft">
+          <PackageSearch className="mx-auto mb-3 h-8 w-8 text-muted" />
+          Catalog is empty — add a product.
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {products.map((p) => (
+            <Card key={p.id} className="flex items-center gap-4 p-4">
+              {p.imageUrl ? (
+                <img
+                  src={p.imageUrl}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-ink/5 text-muted">
+                  <PackageSearch className="h-6 w-6" />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-bold text-ink">{p.title}</p>
+                <p className="text-sm text-muted">
+                  {networkLabel(p.network)}
+                  {p.priceCents != null && ` · ${formatMoney(p.priceCents)}`}
+                  {p.category && ` · ${p.category}`}
                 </p>
-              </Form>
-            </CardContent>
-          </Card>
+              </div>
+              {p.isActive ? (
+                <Badge tone="success">Live</Badge>
+              ) : (
+                <Badge tone="neutral">Hidden</Badge>
+              )}
+              <div className="flex items-center gap-1">
+                <FormDialog
+                  title="Edit catalog product"
+                  submitLabel="Save"
+                  trigger={{ label: "Edit", icon: Pencil, variant: "outline", size: "sm" }}
+                >
+                  <CatalogFields product={p} intent="update" />
+                </FormDialog>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="toggle" />
+                  <input type="hidden" name="id" value={p.id} />
+                  <Button type="submit" variant="ghost" size="sm">
+                    {p.isActive ? "Hide" : "Show"}
+                  </Button>
+                </Form>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="delete" />
+                  <input type="hidden" name="id" value={p.id} />
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete product"
+                    className="text-muted hover:text-danger"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </Form>
+              </div>
+            </Card>
+          ))}
         </div>
-      </div>
+      )}
     </>
   );
 }
@@ -249,18 +228,17 @@ function NetworkSelect({ defaultValue }: { defaultValue?: string }) {
   );
 }
 
-function CatalogForm({
+function CatalogFields({
   product,
-  busy,
+  intent,
 }: {
   product?: Route.ComponentProps["loaderData"]["products"][number];
-  busy: boolean;
+  intent: "add" | "update";
 }) {
-  const isEdit = Boolean(product);
   return (
-    <Form method="post" className="mt-3 space-y-3">
-      <input type="hidden" name="intent" value={isEdit ? "update" : "add"} />
-      {isEdit && <input type="hidden" name="id" value={product!.id} />}
+    <>
+      <input type="hidden" name="intent" value={intent} />
+      {product && <input type="hidden" name="id" value={product.id} />}
       <Field label="Title">
         <Input name="title" defaultValue={product?.title ?? ""} required />
       </Field>
@@ -308,9 +286,6 @@ function CatalogForm({
           className="min-h-20"
         />
       </Field>
-      <Button type="submit" disabled={busy}>
-        {isEdit ? "Save" : "Add to catalog"}
-      </Button>
-    </Form>
+    </>
   );
 }

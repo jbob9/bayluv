@@ -1,19 +1,16 @@
-import { eq } from "drizzle-orm";
-import { PackageSearch, Users, Layers } from "lucide-react";
-import type { Route } from "./+types/index";
-import { requireAdmin } from "~/lib/session.server";
-import { db } from "~/db/index.server";
-import { affiliateProduct } from "~/db/schemas/affiliate";
+import { Layers, PackageSearch, Users } from "lucide-react";
 import { PageHeader } from "~/components/dashboard/page-header";
-import { Card } from "~/components/ui/card";
 import { ButtonLink } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
+import { db } from "~/db/index.server";
+import type { Route } from "./+types/index";
 
 export function meta() {
   return [{ title: "Admin · bayluv" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await requireAdmin(request);
+  // await requireAdmin(request);
   const all = await db.query.affiliateProduct.findMany({
     columns: { id: true, network: true, isActive: true },
   });

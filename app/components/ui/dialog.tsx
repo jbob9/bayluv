@@ -46,7 +46,7 @@ export function Dialog({
       />
       <div
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-t-3xl bg-surface p-6 shadow-card sm:rounded-3xl",
+          "relative z-10 max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-surface p-6 shadow-card sm:rounded-3xl",
           className,
         )}
       >
